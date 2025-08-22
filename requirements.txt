@@ -3,3 +3,4 @@ uvicorn[standard]
 requests
 PyPDF2
 nltk
+python-multipart
