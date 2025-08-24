@@ -113,12 +113,18 @@ def extract_text_from_file(file: UploadFile) -> str:
 # -----------------------------
 # Função para classificar o email
 # -----------------------------
+keywords_produtivas_raw = [
+    "projeto", "reunião", "tarefa", "prazo", "entrega", "solicitação", "ajuda", "erro"
+]
+
+# Stem das palavras-chave para combinar com texto pré-processado
+keywords_produtivas = [stemmer.stem(kw.lower()) for kw in keywords_produtivas_raw]
+
 def classify_email(text: str) -> str:
     """
-    Classificação baseada em palavras-chave simples.
-    Agora usa texto já pré-processado.
+    Classificação baseada em palavras-chave simples, compatível com o texto pré-processado.
     """
-    keywords_produtivas = ["projet", "reuni", "tarefa", "praz", "entreg", "solicit", "ajud", "erro"]
+    # O texto já veio pré-processado (minúsculas, sem pontuação, stopwords removidas)
     for kw in keywords_produtivas:
         if kw in text:
             return "Produtivo"
