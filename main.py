@@ -7,12 +7,49 @@ import os
 
 from dotenv import load_dotenv
 
-# Carrega variáveis do arquivo .env
-load_dotenv()
+# -----------------------------
+# NLP - Pré-processamento
+# -----------------------------
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import RSLPStemmer
+import string
+
+# Baixar recursos do NLTK (apenas na primeira execução)
+nltk.download("stopwords", quiet=True)
+nltk.download("rslp", quiet=True)
+
+stop_words = set(stopwords.words("portuguese"))
+stemmer = RSLPStemmer()
+
+def preprocess_text(text: str) -> str:
+    """
+    Realiza pré-processamento do texto:
+    - Converte para minúsculas
+    - Remove pontuação
+    - Remove stopwords
+    - Aplica stemming
+    """
+    # Minúsculas
+    text = text.lower()
+
+    # Remove pontuação
+    text = text.translate(str.maketrans("", "", string.punctuation))
+
+    # Tokenização simples (split por espaço)
+    tokens = text.split()
+
+    # Remove stopwords e aplica stemming
+    processed_tokens = [
+        stemmer.stem(token) for token in tokens if token not in stop_words
+    ]
+
+    return " ".join(processed_tokens)
 
 # -----------------------------
 # Configurações da API DeepSeek
 # -----------------------------
+load_dotenv()
 DS_API_KEY = os.getenv("DS_API_KEY")
 DS_MODEL_ID = "deepseek/deepseek-r1-0528:free"
 DS_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -26,10 +63,6 @@ headers = {
 # Função para gerar respostas automáticas
 # -----------------------------
 def generate_email_reply(text: str, categoria: str) -> str:
-    """
-    Gera uma resposta automática considerando o email original e sua classificação.
-    Compatível com a API DeepSeek via OpenRouter.
-    """
     payload = {
         "model": DS_MODEL_ID,
         "messages": [
@@ -47,7 +80,6 @@ def generate_email_reply(text: str, categoria: str) -> str:
         response = requests.post(DS_API_URL, headers=headers, json=payload, timeout=60)
         response.raise_for_status()
         data = response.json()
-        # A resposta do OpenRouter vem em choices[0].message.content
         if "choices" in data and len(data["choices"]) > 0:
             answer = data["choices"][0].get("message", {}).get("content", "")
             if answer:
@@ -82,9 +114,13 @@ def extract_text_from_file(file: UploadFile) -> str:
 # Função para classificar o email
 # -----------------------------
 def classify_email(text: str) -> str:
-    keywords_produtivas = ["projeto", "reunião", "tarefa", "prazo", "entrega", "solicitação", "ajuda", "erro"]
+    """
+    Classificação baseada em palavras-chave simples.
+    Agora usa texto já pré-processado.
+    """
+    keywords_produtivas = ["projet", "reuni", "tarefa", "praz", "entreg", "solicit", "ajud", "erro"]
     for kw in keywords_produtivas:
-        if kw in text.lower():
+        if kw in text:
             return "Produtivo"
     return "Improdutivo"
 
@@ -117,16 +153,20 @@ async def classificar_email_endpoint(
         else:
             return JSONResponse(status_code=400, content={"erro": "Nenhum conteúdo ou arquivo enviado."})
 
-        # Classificar email
-        categoria = classify_email(raw_text)
+        # Pré-processar texto
+        processed_text = preprocess_text(raw_text)
 
-        # Gerar resposta automática com base na classificação
+        # Classificar email com base no texto pré-processado
+        categoria = classify_email(processed_text)
+
+        # Gerar resposta automática (usando texto original para contexto melhor)
         resposta_sugerida = generate_email_reply(raw_text, categoria)
 
         result = {
             "categoria": categoria,
             "resposta_sugerida": resposta_sugerida,
-            "texto_original": raw_text
+            "texto_original": raw_text,
+            "texto_processado": processed_text
         }
 
         return JSONResponse(content=result)
