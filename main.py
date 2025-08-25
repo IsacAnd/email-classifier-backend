@@ -7,15 +7,11 @@ import os
 
 from dotenv import load_dotenv
 
-# -----------------------------
-# NLP - Pré-processamento
-# -----------------------------
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import RSLPStemmer
 import string
 
-# Baixar recursos do NLTK (apenas na primeira execução)
 nltk.download("stopwords", quiet=True)
 nltk.download("rslp", quiet=True)
 
@@ -23,32 +19,18 @@ stop_words = set(stopwords.words("portuguese"))
 stemmer = RSLPStemmer()
 
 def preprocess_text(text: str) -> str:
-    """
-    Realiza pré-processamento do texto:
-    - Converte para minúsculas
-    - Remove pontuação
-    - Remove stopwords
-    - Aplica stemming
-    """
-    # Minúsculas
     text = text.lower()
 
-    # Remove pontuação
     text = text.translate(str.maketrans("", "", string.punctuation))
 
-    # Tokenização simples (split por espaço)
     tokens = text.split()
 
-    # Remove stopwords e aplica stemming
     processed_tokens = [
         stemmer.stem(token) for token in tokens if token not in stop_words
     ]
 
     return " ".join(processed_tokens)
 
-# -----------------------------
-# Configurações da API DeepSeek
-# -----------------------------
 load_dotenv()
 DS_API_KEY = os.getenv("DS_API_KEY")
 DS_MODEL_ID = "deepseek/deepseek-r1-0528:free"
@@ -59,9 +41,6 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# -----------------------------
-# Função para gerar respostas automáticas
-# -----------------------------
 def generate_email_reply(text: str, categoria: str) -> str:
     payload = {
         "model": DS_MODEL_ID,
@@ -92,9 +71,6 @@ def generate_email_reply(text: str, categoria: str) -> str:
     except ValueError:
         return "Erro ao decodificar resposta da API (resposta não é JSON)."
 
-# -----------------------------
-# Função para extrair texto do arquivo
-# -----------------------------
 def extract_text_from_file(file: UploadFile) -> str:
     content = ""
     file.file.seek(0)
@@ -110,9 +86,6 @@ def extract_text_from_file(file: UploadFile) -> str:
         raise ValueError("Formato de arquivo não suportado. Use .txt ou .pdf")
     return content
 
-# -----------------------------
-# Função para classificar o email
-# -----------------------------
 keywords_produtivas_raw = [
     "projeto", "reunião", "tarefa", "prazo", "entrega", "solicitação", "ajuda", "erro"
 ]
@@ -121,18 +94,12 @@ keywords_produtivas_raw = [
 keywords_produtivas = [stemmer.stem(kw.lower()) for kw in keywords_produtivas_raw]
 
 def classify_email(text: str) -> str:
-    """
-    Classificação baseada em palavras-chave simples, compatível com o texto pré-processado.
-    """
-    # O texto já veio pré-processado (minúsculas, sem pontuação, stopwords removidas)
+
     for kw in keywords_produtivas:
         if kw in text:
             return "Produtivo"
     return "Improdutivo"
 
-# -----------------------------
-# Inicialização do FastAPI
-# -----------------------------
 app = FastAPI()
 
 app.add_middleware(
@@ -143,9 +110,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -----------------------------
-# Endpoint principal
-# -----------------------------
 @app.post("/classificar-email")
 async def classificar_email_endpoint(
     content: str = Form(None),
@@ -159,13 +123,10 @@ async def classificar_email_endpoint(
         else:
             return JSONResponse(status_code=400, content={"erro": "Nenhum conteúdo ou arquivo enviado."})
 
-        # Pré-processar texto
         processed_text = preprocess_text(raw_text)
 
-        # Classificar email com base no texto pré-processado
         categoria = classify_email(processed_text)
 
-        # Gerar resposta automática (usando texto original para contexto melhor)
         resposta_sugerida = generate_email_reply(raw_text, categoria)
 
         result = {
